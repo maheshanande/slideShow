@@ -8,6 +8,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.hardware.Camera;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
@@ -17,7 +18,7 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
-import android.os.Handler;
+
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -27,14 +28,21 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.LogRecord;
 
 public class MainActivity  extends AppCompatActivity  {
+
+    private List<Integer> yogaPoses;  // List of yoga pose image resources
+    private int currentPoseIndex = 0;  // Index of the currently displayed yoga pose
+    private Timer poseSwitchTimer;
     private static final long POSE_SWITCH_DELAY = 5000; // Delay in milliseconds between pose switches
     private static final int MAX_POSE_INDEX = 2; // Maximum index of the available yoga poses
 
     private Handler poseSwitchHandler;
-    private int currentPoseIndex;
+
     TextureView textureView;
     FrameLayout cameraLayout;
     RelativeLayout relativeLayout;
@@ -52,12 +60,12 @@ public class MainActivity  extends AppCompatActivity  {
         cameraLayout = findViewById(R.id.cameraLayout);
         textureView = findViewById(R.id.cameraView);
 
-        currentPoseIndex = 0;
+
 
         // Other initialization code
 
         // Start the curated yoga session
-        startCuratedYogaSession();
+       // startCuratedYogaSession();
 
         ViewGroup.LayoutParams layoutParams = textureView.getLayoutParams();
 
@@ -69,6 +77,11 @@ public class MainActivity  extends AppCompatActivity  {
         } else {
             initializeCamera();
         }
+        yogaPoseImage = findViewById(R.id.yogaImage);
+        yogaPoses = new ArrayList<>();
+        yogaPoses.add(R.drawable.pose1);
+        yogaPoses.add(R.drawable.pose2);
+        yogaPoses.add(R.drawable.pose1);
         //adjustTextureViewSize();
 
        // yogaPoseImage = findViewById(R.id.yogaPoseImage);
@@ -123,6 +136,7 @@ public class MainActivity  extends AppCompatActivity  {
         super.onResume();
         if (camera != null) {
             camera.startPreview();
+            startPoseSwitching();
         }
     }
 
@@ -131,14 +145,10 @@ public class MainActivity  extends AppCompatActivity  {
         super.onPause();
         if (camera != null) {
             camera.stopPreview();
+            stopPoseSwitching();
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        releaseCamera();
-    }
 
     private void releaseCamera() {
         if (camera != null) {
@@ -164,53 +174,49 @@ public class MainActivity  extends AppCompatActivity  {
 
     // Pose switch with respect to timeframe
 
-    private void startCuratedYogaSession() {
-        // Schedule the initial pose switch after the delay
-        poseSwitchHandler.postDelayed(poseSwitchRunnable, POSE_SWITCH_DELAY);
+    private void startPoseSwitching() {
+        poseSwitchTimer = new Timer();
+        poseSwitchTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        switchToNextPose();
+                    }
+                });
+            }
+        }, 0, 5000); // Switch to next pose every 5 seconds
     }
 
-    private Runnable poseSwitchRunnable = new Runnable() {
-        @Override
-        public void run() {
-            // Switch to the next pose
-            switchToNextPose();
-
-            // Schedule the next pose switch after the delay
-            poseSwitchHandler.postDelayed(this, POSE_SWITCH_DELAY);
+    private void stopPoseSwitching() {
+        if (poseSwitchTimer != null) {
+            poseSwitchTimer.cancel();
+            poseSwitchTimer = null;
         }
-    };
+    }
 
     private void switchToNextPose() {
-        // Increment the current pose index
         currentPoseIndex++;
-        if (currentPoseIndex > MAX_POSE_INDEX) {
-            currentPoseIndex = 0; // Reset to the first pose if the index exceeds the maximum
+        if (currentPoseIndex >= yogaPoses.size()) {
+            currentPoseIndex = 0;
         }
-
-        // Display the next pose
-        showPoseImage(currentPoseIndex);
+        int poseImageRes = yogaPoses.get(currentPoseIndex);
+        yogaPoseImage.setImageResource(poseImageRes);
     }
 
-    private void showPoseImage(int poseIndex) {
-        // Get the ImageView reference for the yoga pose image
-        ImageView yogaPoseImage = findViewById(R.id.yogaPoseImage);
 
-        // Set the appropriate image resource based on the pose index
-        switch (poseIndex) {
-            case 0:
-                yogaPoseImage.setImageResource(R.drawable.pose1);
-                break;
-            case 1:
-                yogaPoseImage.setImageResource(R.drawable.pose2);
-                break;
-            case 2:
-                yogaPoseImage.setImageResource(R.drawable.pose1);
-                break;
-            // Add more cases for additional pose indices
-        }
 
-        // Make the yoga pose image visible
-        yogaPoseImage.setVisibility(View.VISIBLE);
+
+    // Other activity lifecycle methods and necessary implementations
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        releaseCamera();
+        // Remove any pending callbacks when the activity is destroyed
+
     }
+
 
 }
